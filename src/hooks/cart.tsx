@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import AsyncStorage from '@react-native-community/async-storage';
+import { Alert } from 'react-native';
 
 interface Product {
   id: string;
@@ -30,23 +31,117 @@ const CartProvider: React.FC = ({ children }) => {
 
   useEffect(() => {
     async function loadProducts(): Promise<void> {
-      // TODO LOAD ITEMS FROM ASYNC STORAGE
+      const json = await AsyncStorage.getItem('@GoMarket:product');
+
+      if (json) {
+        const listProduct = JSON.parse(json);
+
+        setProducts(listProduct);
+      }
     }
 
     loadProducts();
   }, []);
 
-  const addToCart = useCallback(async product => {
-    // TODO ADD A NEW ITEM TO THE CART
-  }, []);
+  const increment = useCallback(
+    async (id: string) => {
+      const listProduct = products.map(product => {
+        if (product.id === id) {
+          product.quantity += 1;
+        }
 
-  const increment = useCallback(async id => {
-    // TODO INCREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+        return product;
+      });
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+      try {
+        await AsyncStorage.setItem(
+          '@GoMarket:product',
+          JSON.stringify(listProduct),
+        );
+
+        setProducts(listProduct);
+      } catch (e) {
+        console.log(e);
+
+        Alert.alert(
+          'Erro ao incrementar o produto!',
+          'Aconteceu um erro ao incrementar o produto, tente novamente!',
+        );
+      }
+    },
+    [products],
+  );
+
+  const decrement = useCallback(
+    async (id: string) => {
+      let listProduct = products.map(product => {
+        if (product.id === id) {
+          product.quantity -= 1;
+        }
+
+        return product;
+      });
+
+      const product = products.find(prod => prod.id === id);
+
+      if (product && product.quantity === 0) {
+        listProduct = products.filter(prod => prod.id !== id);
+      }
+
+      try {
+        await AsyncStorage.setItem(
+          '@GoMarket:product',
+          JSON.stringify(listProduct),
+        );
+
+        setProducts(listProduct);
+      } catch (e) {
+        console.log(e);
+
+        Alert.alert(
+          'Erro ao decrementar o produto!',
+          'Aconteceu um erro ao decrementar o produto, tente novamente!',
+        );
+      }
+    },
+    [products],
+  );
+
+  const addToCart = useCallback(
+    async (product: Omit<Product, 'quantity'>) => {
+      const containsProduct = products.filter(prod => prod.id === product.id);
+
+      if (containsProduct.length > 0) {
+        increment(product.id);
+
+        return;
+      }
+
+      const newProduct: Product = {
+        ...product,
+        quantity: 1,
+      };
+
+      const listProduct = [...products, newProduct];
+
+      try {
+        await AsyncStorage.setItem(
+          '@GoMarket:product',
+          JSON.stringify(listProduct),
+        );
+
+        setProducts(listProduct);
+      } catch (e) {
+        console.log(e);
+
+        Alert.alert(
+          'Erro ao adicionar o produto!',
+          'Aconteceu um erro ao adicionar o produto, tente novamente!',
+        );
+      }
+    },
+    [increment, products],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
